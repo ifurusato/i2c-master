@@ -1,0 +1,303 @@
+#!/micropython
+# -*- coding: utf-8 -*-
+#
+# Copyright 2020-2026 by Ichiro Furusato. All rights reserved. This file is part
+# of the Robot Operating System project, released under the MIT License.
+#
+# author:   Ichiro Furusato
+# created:  2025-11-16
+# modified: 2026-02-05
+#
+# This is a simplified version of the KRZ04 Controller.
+
+import sys
+import time
+import math, random
+from machine import Timer
+from machine import RTC
+
+import neopixel
+import tinys3
+
+from colors import*
+from pixel import Pixel
+from message_util import pack_message
+
+class Controller:
+    _AUTOSTART_SERVICES = True           # auto-start services after delay
+    _AUTOSTART_DELAY_MS = 7000           # delay in milliseconds before auto-start
+    # pre-packed constant responses
+    _PACKED_ACK  = pack_message('ACK')   # acknowledge okay
+    _PACKED_NACK = pack_message('NACK')  # acknowledge bad command
+    _PACKED_ERR  = pack_message('ERR')   # processing error occurred
+    '''
+    A controller for command strings received from the I2CSlave.
+    '''
+    def __init__(self):
+        self._startup_ms = time.ticks_ms()
+        self._slave = None
+        # neopixel support, with initial blink
+        self._pixel = self._create_pixel()
+        self._pixel.set_color(0, COLOR_CYAN)
+        time.sleep_ms(100)
+        self._pixel.set_color(0, COLOR_BLACK)
+        # heartbeat feature
+        self._heartbeat_enabled     = False
+        self._heartbeat_on_time_ms  = 50
+        self._heartbeat_off_time_ms = 2950
+        self._heartbeat_timer = 0
+        self._heartbeat_state = False
+        self._stop_at = None
+        self._pixel_persist = False
+        # instantiate ring
+        self._timer0 = Timer(0)
+        self._timer1_hz = 24
+        self._services_started   = False
+        print('ready.')
+
+    # public API ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+
+    @property
+    def pixel(self):
+        return self._pixel
+
+    def tick(self, delta_ms):
+        if self._heartbeat_enabled:
+            self._heartbeat(delta_ms)
+        if self._stop_at:
+            if time.ticks_diff(time.ticks_ms(), self._stop_at) >= 0:
+                self._stop_at = None
+                if not self._pixel_persist:
+                    self._pixel.set_color(0, COLOR_BLACK)
+        if Controller._AUTOSTART_SERVICES and not self._services_started:
+            if time.ticks_diff(time.ticks_ms(), self._startup_ms) >= Controller._AUTOSTART_DELAY_MS:
+                self._services_started = True
+                self._start_services()
+
+    def set_slave(self, slave):
+        self._slave = slave
+        self._slave.add_callback(self._on_command)
+
+    def process(self, cmd):
+        '''
+        Processes the callback from the I2C slave, returning 'ACK', 'NACK' or 'ERR'.
+
+        Commands:
+            time get | set <timestamp>           # set/get RTC time
+            pixel off | <color> | <n> <color>    # control NeoPixel
+            persist on | off                     # persist pixel after setting
+            rgb <n> <red> <green> <blue>         # set NeoPixel to RGB
+            heartbeat on | off                   # control heartbeat flash
+            ping                                 # returns "PING"
+            data                                 # return sample data
+            reset                                # force hardware reset
+        '''
+        _show_state = True
+        if _show_state:
+            self._stop_at = time.ticks_add(time.ticks_ms(), 1000)  # stop 1 second later
+        _exit_color = COLOR_BLACK # default
+        self._pixel.set_color(0, COLOR_CYAN)
+        try:
+#           print("cmd: '{}'".format(cmd))
+            parts = cmd.lower().split()
+            if len(parts) == 0:
+                _exit_color = COLOR_RED
+                return Controller._PACKED_ERR
+            _arg0 = parts[0]
+            _arg1 = parts[1] if len(parts) > 1 else None
+            _arg2 = parts[2] if len(parts) > 2 else None
+            _arg3 = parts[3] if len(parts) > 3 else None
+            _arg4 = parts[4] if len(parts) > 4 else None
+#           print("cmd: '{}'; arg0: '{}'; arg1: '{}'; arg2: '{}'; arg3: '{}'; arg4: '{}'".format(cmd, _arg0, _arg1, _arg2, _arg3, _arg4))
+
+            if _arg0 == "time":
+#               print('time: {}, {}'.format(_arg1, _arg2))
+                if _arg1 == 'set':
+                    _exit_color = COLOR_DARK_GREEN
+                    return self._set_time(_arg2)
+                elif _arg1 == 'get':
+                    _exit_color = COLOR_DARK_GREEN
+                    return pack_message(self._rtc_to_iso(RTC().datetime()))
+                _exit_color = COLOR_RED
+                return Controller._PACKED_ERR
+
+            elif _arg0 == "pixel":
+                # any calls to pixel disable heartbeat
+                self._heartbeat_enabled = False
+                _show_state = False
+                if self._pixel:
+                    if _arg1 == 'off' or _arg1 == 'clear':
+                        color = COLOR_BLACK
+                    else:
+                        color = self._get_color(_arg1, _arg2)
+                    if not color:
+                        print("ERROR: could not find color: arg1: '{}'; arg2: '{}'".format(_arg1, _arg2))
+                        _exit_color = COLOR_RED
+                        return Controller._PACKED_ERR
+                    self._pixel.set_color(0, color)
+                    return Controller._PACKED_ACK
+                else:
+                    print('ERROR: no pixel available.')
+                _exit_color = COLOR_RED
+                return Controller._PACKED_ERR
+
+            elif _arg0 == "persist":
+                if _arg1 == 'on':
+                    self._pixel_persist = True
+                    _exit_color = COLOR_BLACK # otherwise it'd be on
+                    return Controller._PACKED_ACK
+                elif _arg1 == 'off':
+                    self._pixel_persist = False
+                    _exit_color = COLOR_DARK_GREEN
+                    return Controller._PACKED_ACK
+                else:
+                    print("ERROR: unrecognised persist argument: {}'".format(_arg1))
+                    _exit_color = COLOR_RED
+                    return Controller._PACKED_ERR
+
+            elif _arg0 == "heartbeat":
+                if _arg1 == 'on':
+                    self._pixel_persist = False # contradictory, so off
+                    self._heartbeat_enabled = True
+                    _exit_color = COLOR_DARK_GREEN
+                    return Controller._PACKED_ACK
+                elif _arg1 == 'off':
+                    self._heartbeat_enabled = False
+                    _exit_color = COLOR_DARK_GREEN
+                    return Controller._PACKED_ACK
+                else:
+                    print("ERROR: unrecognised argument: '{}'".format(_arg1))
+                    _exit_color = COLOR_RED
+                    return Controller._PACKED_ERR
+
+            elif _arg0 == "rgb":
+                # e.g., rgb 3 130 40 242
+                index = int(_arg1)
+                red   = int(_arg2)
+                green = int(_arg3)
+                blue  = int(_arg4)
+                self._pixel.set_color(index, (red, green, blue))
+                _exit_color = COLOR_DARK_GREEN
+                return Controller._PACKED_ACK
+
+            elif _arg0 == "ping":
+                _exit_color = COLOR_DARK_GREEN
+                return pack_message('PING')
+
+            # get/set (data request)
+            elif _arg0 == "data":
+                # send test data
+                _exit_color = COLOR_FUCHSIA
+                return packed_message('0000 1111 2222 3333')
+
+            elif _arg0 == "reset":
+                import machine
+
+                print('performing microcontroller reset…')
+                machine.reset()
+                return Controller._PACKED_ACK
+
+            else:
+                print("WARNING: unrecognised command: '{}'{}{}{}".format(
+                        cmd,
+                        "; arg0: '{}'".format(_arg0) if _arg0 else '',
+                        "; arg1: '{}'".format(_arg1) if _arg1 else '',
+                        "; arg2: '{}'".format(_arg2) if _arg2 else ''))
+                _exit_color = COLOR_ORANGE
+                return Controller._PACKED_NACK
+            _exit_color = COLOR_DARK_GREEN
+            return Controller._PACKED_ACK
+
+        except Exception as e:
+            print("ERROR: {} raised by controller: {}".format(type(e), e))
+            sys.print_exception()
+            _exit_color = COLOR_RED
+            return Controller._PACKED_ERR
+        finally:
+            if _show_state:
+                self._pixel.set_color(0, _exit_color)
+
+    # ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+
+    def _on_command(self, cmd):
+        '''
+        The callback from the I2C slave, passes the command on for processing,
+        returning the result.
+        '''
+        return self.process(cmd)
+
+    def _create_pixel(self):
+        '''
+        Initialises Neopixel support on the UnexpectedMaker TinyS3. If using
+        a different board this method will need to be modified accordingly.
+        '''
+        _pixel = Pixel(pin=tinys3.RGB_DATA, pixel_count=1)
+        tinys3.set_pixel_power(1)
+        _pixel.set_color(0, COLOR_BLACK)
+        return _pixel
+
+    def _led_off(self, timer=None):
+        self._pixel.set_color(0, COLOR_BLACK)
+
+    def _start_services(self):
+        time_elapsed = time.ticks_ms() - self._startup_ms
+        print('starting services after {}ms'.format(time_elapsed))
+        self._heartbeat_enabled = True
+        pass # whatever services to be started after a delay
+
+    def _beat(self):
+        self._pixel.set_color(0, COLOR_DARK_CYAN)
+        self._timer0.deinit()
+        self._timer0.init(period=20, mode=Timer.PERIODIC, callback=self._led_off)
+
+    def _heartbeat(self, delta_ms):
+        self._heartbeat_timer += delta_ms
+        if self._heartbeat_state:
+            if self._heartbeat_timer >= self._heartbeat_on_time_ms:
+                self._heartbeat_state = False
+                self._heartbeat_timer = 0
+        else:
+            if self._heartbeat_timer >= self._heartbeat_off_time_ms:
+                self._heartbeat_state = True
+                self._beat()
+                self._heartbeat_timer = 0
+
+    def _get_color(self, name, second_token):
+        if second_token: # e.g., "dark cyan"
+            name = '{} {}'.format(name, second_token)
+        return Color.get(name)
+
+    def _set_rotation_pending(self, t):
+        self._rotation_pending = True
+
+    def _action(self, t):
+        pass
+
+    def _parse_timestamp(self, ts):
+        year    = int(ts[0:4])
+        month   = int(ts[4:6])
+        day     = int(ts[6:8])
+        hour    = int(ts[9:11])
+        minute  = int(ts[11:13])
+        second  = int(ts[13:15])
+        weekday = 0
+        subsecs = 0
+        return (year, month, day, weekday, hour, minute, second, subsecs)
+
+    def _rtc_to_iso(self, dt):
+        return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(dt[0], dt[1], dt[2], dt[4], dt[5], dt[6])
+
+    def _get_time(self):
+        return time.time()
+
+    def _set_time(self, timestamp):
+        try:
+            print('time before: {}'.format(self._rtc_to_iso(RTC().datetime())))
+            RTC().datetime(self._parse_timestamp(timestamp))
+            print('time after:  {}'.format(self._rtc_to_iso(RTC().datetime())))
+            return Controller._PACKED_ACK
+        except Exception as e:
+            print("ERROR: {} raised by tinyfx controller: {}".format(type(e), e))
+            return Controller._PACKED_ERR
+
+#EOF
