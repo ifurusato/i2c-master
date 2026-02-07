@@ -7,17 +7,17 @@
 #
 # author:   Ichiro Furusato
 # created:  2025-11-16
-# modified: 2026-02-05
+# modified: 2026-02-08
 
 import time
 from threading import Event, Lock, Thread
 
-from tinys3_i2c_target import TinyS3Controller
+from i2c_master import I2CMaster
 
 # ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 
-I2C_ID           = 0
-I2C_ADDRESS      = 0x47
+I2C_ID           = 1       # I2C bus identifier
+I2C_ADDRESS      = 0x47    # I2C device address
 WORKER_DELAY_SEC = 1.0     # time between automatic polls
 REQUEST          = "data"  # poll command
 
@@ -47,7 +47,7 @@ def main():
     i2c_lock      = Lock()
 
     try:
-        master = TinyS3Controller(i2c_id=I2C_ID, i2c_address=I2C_ADDRESS)
+        master = I2CMaster(i2c_id=I2C_ID, i2c_address=I2C_ADDRESS)
         master.enable()
         while True:
             user_msg = input('Enter command string to send ("quit" to exit): ')

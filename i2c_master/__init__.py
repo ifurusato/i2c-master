@@ -7,7 +7,7 @@
 #
 # author:   Ichiro Furusato
 # created:  2025-11-16
-# modified: 2026-02-05
+# modified: 2026-02-08
 
 import time
 from datetime import datetime as dt, timezone
@@ -16,15 +16,19 @@ import smbus2
 from .message_util import pack_message, unpack_message
 
 class I2CMaster:
-    I2C_BUS_ID  = 1     # the I2C bus number; on a Raspberry Pi the default is 1
-    I2C_ADDRESS = 0x43  # the default I2C address
+    I2C_BUS_ID  = 1
+    I2C_ADDRESS = 0x47
     WRITE_READ_DELAY_SEC = 0.009 # this may need adjusting for packet length and reliability
     '''
-    Abstract base class for an I2C master controller.
-    '''
-    def __init__(self, i2c_bus_id=None, i2c_address=None, timeset=True):
-        self._i2c_bus_id  = i2c_bus_id if i2c_bus_id else I2CMaster.I2C_BUS_ID
-        self._i2c_address = i2c_address if i2c_address else I2CMaster.I2C_ADDRESS
+    I2C master controller.
+
+    Args:
+        i2c_id:        the I2C bus identifier (default is 1)
+        i2c_address:   the I2C device address (default is 0x47)
+    ''' 
+    def __init__(self, i2c_id=None, i2c_address=None, timeset=True):
+        self._i2c_bus_id  = i2c_id if i2c_id is not None else self.I2C_BUS_ID
+        self._i2c_address = i2c_address if i2c_address is not None else self.I2C_ADDRESS
         self._enabled = False
         self._timeset = timeset
         self._fail_on_exception = False
@@ -36,7 +40,7 @@ class I2CMaster:
             print('ERROR: {} raised opening smbus: {}'.format(type(e), e))
             raise
 
-    # ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+    # ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 
     def set_fail_on_exception(self, fail):
         self._fail_on_exception = fail
@@ -65,7 +69,7 @@ class I2CMaster:
 
     def send_request(self, message):
         '''
-        Send a message and return the response.
+        send a message and return the response.
         '''
         if self._enabled:
             if message.startswith('time set'):
@@ -92,7 +96,7 @@ class I2CMaster:
 
     def enable(self):
         '''
-        Enable the I2CMaster.
+        enable the I2CMaster.
         '''
         if not self._enabled:
             self._enabled = True
@@ -105,7 +109,7 @@ class I2CMaster:
 
     def disable(self):
         '''
-        Disable the I2CMaster.
+        disable the I2CMaster.
         '''
         if self._enabled:
             self._enabled = False
@@ -114,7 +118,7 @@ class I2CMaster:
 
     def close(self):
         '''
-        Disable and close the I2CMaster.
+        disable and close the I2CMaster.
         '''
         if not self.closed:
             self.disable()
