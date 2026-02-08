@@ -18,7 +18,7 @@ from .message_util import pack_message, unpack_message
 class I2CMaster:
     I2C_BUS_ID  = 1
     I2C_ADDRESS = 0x47
-    WRITE_READ_DELAY_SEC = 0.009 # this may need adjusting for packet length and reliability
+    WRITE_READ_DELAY_SEC = 0.011 # this may need adjusting for packet length and reliability
     '''
     I2C master controller.
 
@@ -83,6 +83,8 @@ class I2CMaster:
                 resp_bytes = self._i2c_write_and_read(out_msg)
                 response = unpack_message(resp_bytes)
                 return response
+            except OSError as e:
+                raise
             except Exception as e:
                 print('ERROR: {} raised by send request: {}'.format(type(e), e))
                 if self._fail_on_exception:
