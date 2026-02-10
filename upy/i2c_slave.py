@@ -27,10 +27,13 @@ class I2CSlave:
     '''
     def __init__(self, i2c_id, scl, sda, i2c_address):
         self._i2c_id      = i2c_id
-        self._scl_pin     = Pin(scl)
-        self._sda_pin     = Pin(sda)
+        self._scl_pin     = Pin(scl) if scl else None
+        self._sda_pin     = Pin(sda) if sda else None
         self._i2c_address = i2c_address
-        print('I2C slave configured with SDA on pin {}, SCL on pin {}'.format(sda, scl))
+        if self._scl_pin is not None:
+            print('I2C slave configured with SDA on pin {}, SCL on pin {}'.format(sda, scl))
+        else:
+            print('I2C slave configured using configured values.')
         self._i2c = None
         self._mem_buf = bytearray(I2CSlave.MEM_LENGTH)
         self._rx_copy = bytearray(I2CSlave.MEM_LENGTH)
@@ -45,9 +48,13 @@ class I2CSlave:
 
     def enable(self):
         i2c_id = self._i2c_id
-        self._i2c = I2CTarget(i2c_id, self._i2c_address, mem=self._mem_buf, scl=self._scl_pin, sda=self._sda_pin)
+        if self._scl_pin is not None:
+            self._i2c = I2CTarget(i2c_id, self._i2c_address, mem=self._mem_buf, scl=self._scl_pin, sda=self._sda_pin)
+            print('I2C slave enabled on I2C{} address {:#04x}'.format(i2c_id, self._i2c_address))
+        else:
+            self._i2c = I2CTarget(i2c_id, self._i2c_address, mem=self._mem_buf)
+            print('I2C slave enabled on I2C{} address {:#04x}'.format(i2c_id, self._i2c_address))
         self._i2c.irq(self._irq_handler, trigger=I2CTarget.IRQ_END_WRITE, hard=False)
-        print('I2C slave enabled on I2C{} address {:#04x}'.format(i2c_id, self._i2c_address))
 
     def disable(self):
         if self._i2c:

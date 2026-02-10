@@ -413,7 +413,7 @@ available commands:
 
         except Exception as e:
             print("ERROR: {} raised by controller: {}".format(type(e), e))
-            sys.print_exception()
+            sys.print_exception(e)
             _exit_color = COLOR_RED
             return self._PACKED_ERR
         finally:

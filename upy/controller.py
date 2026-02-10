@@ -13,12 +13,12 @@
 import sys
 import time
 import math, random
-from machine import Timer
 from machine import RTC
 
 import tinys3
 
 from colors import*
+from pico_pixel import PicoPixel
 from message_util import pack_message
 
 class Controller:
@@ -51,11 +51,21 @@ class Controller:
         self._heartbeat_state = False
         self._stop_at = None
         self._pixel_persist = False
-        # instantiate ring
-        self._timer0 = Timer(0)
-        self._timer1_hz = 24
+        # instantiate pixel and timer
+        self._pixel_timer_freq_hz = 50
+        self._create_pixel_timer()
         self._services_started   = False
         print('ready.')
+
+    def _create_pixel_timer(self):
+        try:
+            from machine import Timer
+
+            self._pixel_timer = Timer()
+            self._pixel_timer.init(freq=self._pixel_timer_freq_hz, callback=self._led_off)
+        except Exception as e:
+            print("ERROR: {} raised creating pixel timer: {}".format(type(e), e))
+            sys.print_exception(e)
 
     # public API ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 
@@ -211,7 +221,7 @@ class Controller:
 
         except Exception as e:
             print("ERROR: {} raised by controller: {}".format(type(e), e))
-            sys.print_exception()
+            sys.print_exception(e)
             _exit_color = COLOR_RED
             return Controller._PACKED_ERR
         finally:
@@ -247,12 +257,12 @@ class Controller:
     def _enable_heartbeat(self, enabled):
         self._heartbeat_enabled = enabled
         if not enabled:
-            self._timer0.deinit()
+            self._pixel_timer.deinit()
 
     def _beat(self):
         self._pixel.set_color(0, COLOR_DARK_CYAN)
-        self._timer0.deinit()
-        self._timer0.init(period=20, mode=Timer.PERIODIC, callback=self._led_off)
+        self._pixel_timer.deinit()
+        self._pixel_timer.init(freq=self._pixel_timer_freq_hz)
 
     def _heartbeat(self, delta_ms):
         self._heartbeat_timer += delta_ms

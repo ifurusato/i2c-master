@@ -40,7 +40,7 @@ def run_cli():
             ctrl.process(cmd)
         except Exception as e:
             print("{} raised by control: {}".format(type(e), e))
-            sys.print_exception()
+            sys.print_exception(e)
 
 run_cli()
 

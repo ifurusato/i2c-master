@@ -15,29 +15,70 @@ import asyncio
 
 from i2c_slave import I2CSlave
 from controller import Controller
-from pixel import Pixel
 
 # configuration ┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 
+IS_TINYS3       = False
+IS_TINYFX       = False
+IS_RPI_PICO     = False
+IS_STM32F405    = True
+IS_ESP32_TINY   = True
+
 RELOAD_MODULES  = True
 I2C_ID          = 0
-I2C_ADDRESS     = 0x47
+I2C_ADDRESS     = 0x41
 
-IS_TINYS3 = False
 if IS_TINYS3:
     import tinys3
+    from pixel import Pixel
 
     BOARD_NAME   = 'UM TinyS3'
+    I2C_ADDRESS  = 0x43
     SCL_PIN      = 7
     SDA_PIN      = 6
     NEOPIXEL_PIN = tinys3.RGB_DATA
     COLOR_ORDER  = 'GRB'
-else:
+
+elif IS_TINYFX:
+    BOARD_NAME   = 'Pimoroni TinyFX'
+    I2C_ADDRESS  = 0x45
+    SCL_PIN      = 17
+    SDA_PIN      = 16
+    NEOPIXEL_PIN = None
+    COLOR_ORDER  = None
+
+elif IS_RPI_PICO:
+    from pico_pixel import PicoPixel
+
+    BOARD_NAME   = 'Raspberry Pi Pico'
+    I2C_ID       = 1
+    I2C_ADDRESS  = 0x47
+    SCL_PIN      = 3
+    SDA_PIN      = 2
+
+elif IS_STM32F405:
+    from stm32_controller import STM32Controller
+    from pixel import Pixel
+    
+    BOARD_NAME   = 'WeAct STM32F405'
+    I2C_ID       = 2
+    I2C_ADDRESS  = 0x49
+    SCL_PIN      = None # 'B10'
+    SDA_PIN      = None # 'B11'
+    NEOPIXEL_PIN = 'B14'
+    COLOR_ORDER  = 'GRB'
+
+elif IS_ESP32_TINY:
+    from pixel import Pixel
+
     BOARD_NAME   = 'WaveShare ESP32-S3 Tiny'
+    I2C_ADDRESS  = 0x51
     SCL_PIN      = 1 
     SDA_PIN      = 2
     NEOPIXEL_PIN = 21
     COLOR_ORDER  = 'RGB'
+else:
+    raise Exception('no board specified.')
 
 print('configuring for {}…'.format(BOARD_NAME))
 
@@ -56,11 +97,15 @@ def create_pixel():
     Initialises NeoPixel support. If not using a UM TinyS3, set IS_TINYS3 to False
     and modify this method accordingly.
     '''
-    _pixel = Pixel(pin=NEOPIXEL_PIN, pixel_count=1, color_order=COLOR_ORDER)
-    if IS_TINYS3:
-        tinys3.set_pixel_power(1)
-    print('NeoPixel configured on pin {}'.format(NEOPIXEL_PIN))
-    _pixel.set_color(0, (0, 0, 0))
+    if IS_RPI_PICO:
+        _pixel = PicoPixel()
+        print('on-board LED configured.')
+    else:
+        _pixel = Pixel(pin=NEOPIXEL_PIN, pixel_count=1, color_order=COLOR_ORDER)
+        if IS_TINYS3:
+            tinys3.set_pixel_power(1)
+        print('NeoPixel configured on pin {}'.format(NEOPIXEL_PIN))
+        _pixel.set_color(0, (0, 0, 0))
     return _pixel
 
 async def i2c_loop(controller, slave):
@@ -78,11 +123,14 @@ def start():
 
     enabled = True
     slave   = None
-
     try:
-
-        pixel = create_pixel()
-        controller = Controller(pixel)
+        if IS_TINYFX:
+            controller = Controller()
+        elif IS_STM32F405:
+            controller = STM32Controller()
+        else:
+            pixel = create_pixel()
+            controller = Controller(pixel)
         slave = I2CSlave(i2c_id=I2C_ID, scl=SCL_PIN, sda=SDA_PIN, i2c_address=I2C_ADDRESS)
         slave.add_callback(controller.process)
         controller.set_slave(slave)
@@ -103,3 +151,4 @@ def start():
 start()
 
 #EOF
+
