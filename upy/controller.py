@@ -13,8 +13,6 @@ import time
 import math, random
 from machine import RTC
 
-import tinys3
-
 from colors import*
 from pico_pixel import PicoPixel
 from message_util import pack_message
@@ -63,7 +61,6 @@ class Controller:
             self._pixel_timer = Timer(0)
             self._pixel_timer.init(freq=self._pixel_timer_freq_hz, callback=self._led_off)
         except Exception as e:
-            print("ERROR: {} raised creating pixel timer: {}".format(type(e), e))
             sys.print_exception(e)
 
     # public API ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
@@ -245,7 +242,8 @@ class Controller:
         return self.process(cmd)
 
     def _led_off(self, timer=None):
-        self._pixel.set_color(0, COLOR_BLACK)
+        if self._pixel:
+            self._pixel.set_color(0, COLOR_BLACK)
 
     def _start_services(self):
         time_elapsed = time.ticks_ms() - self._startup_ms
@@ -260,8 +258,10 @@ class Controller:
 
     def _beat(self):
         self._pixel.set_color(0, COLOR_DARK_CYAN)
-        self._pixel_timer.deinit()
-        self._pixel_timer.init(freq=self._pixel_timer_freq_hz)
+        if self._pixel_timer:
+            self._pixel_timer.deinit()
+#           self._pixel_timer.init(freq=self._pixel_timer_freq_hz)
+            self._pixel_timer.init(freq=self._pixel_timer_freq_hz, callback=self._led_off)
 
     def _heartbeat(self, delta_ms):
         self._heartbeat_timer += delta_ms
