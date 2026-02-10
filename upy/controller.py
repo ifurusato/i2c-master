@@ -30,9 +30,11 @@ class Controller:
 
     Args:
         pixel:    an instance of the Pixel class, provides NeoPixel support
+        family:   the board family
     '''
-    def __init__(self, pixel):
+    def __init__(self, pixel, family):
         self._startup_ms = time.ticks_ms()
+        self._family = family
         self._slave = None
         # neopixel support, with initial blink
         self._pixel = pixel
@@ -58,7 +60,10 @@ class Controller:
         try:
             from machine import Timer
 
-            self._pixel_timer = Timer(0)
+            if self._family == 'RP2':
+                self._pixel_timer = Timer()
+            else:
+                self._pixel_timer = Timer(0)
             self._pixel_timer.init(freq=self._pixel_timer_freq_hz, callback=self._led_off)
         except Exception as e:
             sys.print_exception(e)

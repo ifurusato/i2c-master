@@ -38,7 +38,7 @@ class STM32Controller(Controller):
     def __init__(self):
         self._pixel_off_pending = False
         self._pixel = Pixel(pin=STM32Controller.RING_PIN, pixel_count=1, brightness=0.1)
-        super().__init__(self._pixel)
+        super().__init__(self._pixel, 'STM32')
         # ready
 
     def _create_pixel_timer(self):

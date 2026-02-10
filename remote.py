@@ -66,7 +66,7 @@ def main():
         print('connecting to device at 0x{:02X}…'.format(i2c_address))
         master = I2CMaster(i2c_id=I2C_ID, i2c_address=i2c_address)
         master.enable()
-        print('\nEnter command string to send (Ctrl-C or "quit" to exit):')
+        print('\nEnter command string to send (Ctrl-C or "exit" to exit):')
 
         last_user_msg = None
         while True:
@@ -77,7 +77,7 @@ def main():
             elif last_user_msg is not None and user_msg == 'r':
                 # repeat last command
                 user_msg = last_user_msg
-            elif user_msg.strip() == 'quit':
+            elif user_msg.strip() == 'exit':
                 break
             elif user_msg == 'go':
                 if worker_thread and worker_thread.is_alive():

@@ -18,7 +18,7 @@ from i2c_slave import I2CSlave
 # configuration ┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 
 RELOAD_MODULES = True
-BOARD = 'STM32F405'  # 'TINYS3' | 'TINYFX' | 'RPI_PICO' | 'STM32F405' | 'ESP32_TINY'
+BOARD = 'RPI_PICO'  # 'TINYS3' | 'TINYFX' | 'RPI_PICO' | 'STM32F405' | 'ESP32_TINY'
 
 BOARD_CONFIGS = {
     'TINYS3': {
@@ -28,6 +28,7 @@ BOARD_CONFIGS = {
         'scl_pin': 7,
         'sda_pin': 6,
         'controller_class': 'Controller',
+        'family': 'ESP32',
         'pixel_pin': None,  # set by tinys3.RGB_DATA
         'color_order': 'GRB',
         'needs_pixel_power': True,
@@ -39,6 +40,7 @@ BOARD_CONFIGS = {
         'scl_pin': 17,
         'sda_pin': 16,
         'controller_class': 'Controller',
+        'family': 'RP2',
         'pixel_pin': None,
         'color_order': None,
         'needs_pixel_power': False,
@@ -50,6 +52,7 @@ BOARD_CONFIGS = {
         'scl_pin': 3,
         'sda_pin': 2,
         'controller_class': 'Controller',
+        'family': 'RP2',
         'pixel_class': 'PicoPixel',
         'color_order': None,
         'needs_pixel_power': False,
@@ -61,6 +64,7 @@ BOARD_CONFIGS = {
         'scl_pin': None,
         'sda_pin': None,
         'controller_class': 'STM32Controller',
+        'family': 'STM32',
         'pixel_pin': 'B14',
         'color_order': 'GRB',
         'needs_pixel_power': False,
@@ -72,6 +76,7 @@ BOARD_CONFIGS = {
         'scl_pin': 1,
         'sda_pin': 2,
         'controller_class': 'Controller',
+        'family': 'ESP32',
         'pixel_pin': 21,
         'color_order': 'RGB',
         'needs_pixel_power': False,
@@ -93,11 +98,14 @@ if RELOAD_MODULES:
 def create_controller(config):
     if config['controller_class'] == 'STM32Controller':
         from stm32_controller import STM32Controller
+
         return STM32Controller()
     else:
         from controller import Controller
+
+        family = config['family']
         pixel = create_pixel(config)
-        return Controller(pixel)
+        return Controller(pixel, family)
 
 def create_pixel(config):
     if config.get('pixel_class') == 'PicoPixel':
