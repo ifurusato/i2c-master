@@ -45,21 +45,22 @@ class Controller:
         self._heartbeat_enabled     = False
         self._heartbeat_on_time_ms  = 50
         self._heartbeat_off_time_ms = 2950
-        self._heartbeat_timer = 0
-        self._heartbeat_state = False
-        self._stop_at = None
-        self._pixel_persist = False
+        self._heartbeat_timer       = 0
+        self._heartbeat_state       = False
+        self._stop_at               = None
+        self._pixel_persist         = False
         # instantiate pixel and timer
-        self._pixel_timer_freq_hz = 50
+        self._pixel_timer           = None
+        self._pixel_timer_freq_hz   = 50
         self._create_pixel_timer()
-        self._services_started   = False
+        self._services_started      = False
         print('ready.')
 
     def _create_pixel_timer(self):
         try:
             from machine import Timer
 
-            self._pixel_timer = Timer()
+            self._pixel_timer = Timer(0)
             self._pixel_timer.init(freq=self._pixel_timer_freq_hz, callback=self._led_off)
         except Exception as e:
             print("ERROR: {} raised creating pixel timer: {}".format(type(e), e))
