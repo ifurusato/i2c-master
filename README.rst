@@ -145,30 +145,32 @@ Files include::
         neopixel.py         # standard NeoPixel implementation
         pixel.py            # wraps NeoPixel functionality
 
-Additionally, for the WeAct STM32F405 (which may be ignored if not using it)::
+The files in the ``upy`` directory listed above are all required for all microcontroller
+boards.
+
+Additionally, for the WeAct STM32F405::
 
         stm32controller.py  # subclass of Controller for use with an STM32
         ringcontroller.py   # controller for a NeoPixel ring (subclasses the STM32Controller)
 
-Additionally, for the Raspberry Pi Pico (which may be ignored if not using it)::
+Additionally, for the Raspberry Pi Pico::
 
         picocontroller.py   # controller for a Raspberry Pi Pico
 
-Additionally, for the UM TinyS3 (which may be ignored if not using it)::
+Additionally, for the UM TinyS3::
 
         tinys3.py           # TinyS3 utility class
 
-Additionally, for the Pimoroni Tiny FX (which may be ignored if not using it)::
+Additionally, for the Pimoroni Tiny FX::
 
         manual_player.py    # a player controlling mono LED outputs on the Tiny FX
         settable.py         # a Tiny FX device that responds to set() commands
         settable_blink.py   # a Tiny FX device that blinks according to values set via a method
         sounds/             # a directory containing WAV files
 
+Sound files for the Tiny FX must be monophonic WAV format with a sample rate of 44,100Hz.
 
-Sound files must be monophonic WAV format with a sample rate of 44,100Hz.
-
-.. Yes, message_util.py is duplicated. I could be clever but prefer they are independent even if identical.
+.. Yes, the message_util.py is duplicated between master and slave implementations.
 
 
 Status
