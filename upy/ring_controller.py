@@ -31,10 +31,12 @@ class RingController(STM32Controller):
         self._ring_offset      = 0
         self._rotate_direction = 1 # 1 or -1
         self._enable_rotate    = False
+        self._rotate_pending   = False # flag for deferred execution
         self._ring_model = [PixelState() for _ in range(RingController.PIXEL_COUNT)]
         # theme
         self._enable_theme     = False
         self._pulse_steps      = 40
+        self._theme_pending    = False # flag for deferred execution
         self._theme_target_pixels = 12 # default
         self._all  = Color.all_colors()
         self._cool = [ COLOR_BLUE, COLOR_CYAN, COLOR_DARK_BLUE, COLOR_DARK_CYAN,
@@ -127,9 +129,20 @@ class RingController(STM32Controller):
 
     def _action(self, t):
         if self._enable_rotate:
-            self._rotate_ring()
+            self._rotate_pending = True
         if self._enable_theme:
+            self._theme_pending = True
+
+    def tick(self, delta_ms):
+        # handle deferred ring updates first
+        if self._rotate_pending:
+            self._rotate_pending = False
+            self._rotate_ring()
+        if self._theme_pending:
+            self._theme_pending = False
             self._theme()
+        # then handle pixel off and parent tick
+        super().tick(delta_ms)
 
     # theme processing ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 
@@ -153,6 +166,8 @@ class RingController(STM32Controller):
         self._update_ring()
 
     def _init_theme(self, reset=False):
+        # disable heartbeat when theme starts
+        self._enable_heartbeat(False)
         if reset:
             self.reset_ring()
             existing_count = 0
@@ -191,7 +206,7 @@ class RingController(STM32Controller):
         Pre-process the arguments, returning a response and color if a match occurs.
         Such a match precludes further processing.
         '''
-        print("🐥 pre-process command '{}' with arg0: '{}'; arg1: '{}'; arg2: '{}'; arg3: '{}'; arg4: '{}'".format(cmd, arg0, arg1, arg2, arg3, arg4))
+#       print("pre-process command '{}' with arg0: '{}'; arg1: '{}'; arg2: '{}'; arg3: '{}'; arg4: '{}'".format(cmd, arg0, arg1, arg2, arg3, arg4))
         if arg0 == "__extend_here__":
             return None, None
 
@@ -233,7 +248,7 @@ class RingController(STM32Controller):
                 if arg1 == 'on':
                     self._enable_rotate = True
                     self._restart_timer()
-                    return Controller._PACKED_ACK. COLOR_DARK_GREEN
+                    return Controller._PACKED_ACK, COLOR_DARK_GREEN
                 elif arg1 == 'off':
                     self._enable_rotate = False
                     self._restart_timer()
@@ -329,7 +344,7 @@ class RingController(STM32Controller):
         '''
         Post-process the arguments, returning a NACK and color if no match on arg0 occurs.
         '''
-        print("🐥 post-process command '{}' with arg0: '{}'; arg1: '{}'; arg2: '{}'; arg3: '{}'; arg4: '{}'".format(cmd, arg0, arg1, arg2, arg3, arg4))
+#       print("post-process command '{}' with arg0: '{}'; arg1: '{}'; arg2: '{}'; arg3: '{}'; arg4: '{}'".format(cmd, arg0, arg1, arg2, arg3, arg4))
         if arg0 == "__extend_here__":
             return None, None
         else:
