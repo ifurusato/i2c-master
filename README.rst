@@ -71,29 +71,41 @@ feature can be disabled if not needed.
 
 The commands are:
 
-    time get | set <timestamp>           # set/get RTC time
-    pixel off | <color> | <n> <color>    # control NeoPixel
-    persist on | off                     # persist pixel after setting
-    rgb <n> <red> <green> <blue>         # set NeoPixel to RGB (0-255, 0-255, 0-255)
-    heartbeat on | off                   # control heartbeat flash
-    ping                                 # returns "PING"
-    data                                 # return sample data
-    reset                                # force hardware reset
+    time get | set <timestamp>              # set/get RTC time
+    pixel off | <color> | <n> <color>       # control NeoPixel
+    persist on | off                        # persist pixel after setting
+    rgb <n> <red> <green> <blue>            # set NeoPixel to RGB
+    heartbeat on | off                      # control heartbeat flash
+    ping                                    # returns "PING"
+    data                                    # return sample data
+    reset                                   # force hardware reset
+
+when using the RingController, the additional commands are added:
+
+    ring clear |                            # set all ring pixels off
+       | all ( off | clear | <name> )       # set all ring pixels off or to color
+    rotate on | off | fwd | cw | rev | ccw  # control ring pixel rotation
+       | hz <n>                             # set rotation frequency
+    theme on | off                          # enable/disable theme pulsation
+       | hz <n>                             # set theme pulse frequency
+       | pixels <count>                     # enable randomly-placed pixels in current palette
+       | palette <name> <count>             # set palette with count of randomly-placed pixels
 
 Color names are enumerated in colors.py. You can use "pink" or "dark cyan"
 without quotes, e.g.,
 
     pixel dark cyan
 
-The NeoPixel will automatically turn off after 1 second. To keep it on, use
-"persist on".
+When set, the NeoPixel will automatically turn off after 1 second. To keep it on,
+use "persist on".
 
-The heartbeat, which blinks the NeoPixel, can be turned on or off. Setting
-the NeoPixel will disable it automatically.
+The heartbeat, which blinks the NeoPixel, can be turned on or off. Setting the
+NeoPixel will disable it automatically.
 
 If the slave performance is too slow (for any reason), the slave will generally
 return the command sent to it (which is what's in its memory buffer prior to
-being processed), otherwise "ACK", "ERR" or specific data.
+being processed), otherwise "ACK", "ERR" or specific data. Increasing the delay
+on the I2C master will eliminate this.
 
 
 Files
@@ -101,24 +113,26 @@ Files
 
 Program files include::
 
-    remote.py             # the CLI remote controller
+    remote.py               # the CLI remote controller
 
-    tinys3_controller:    # the library directory
+    tinys3_controller:      # the library directory
         __init__.py
-        i2c_master.py     # the abstract I2C master class
-        message_util.py   # handles message packing and unpacking, CRC8 checksums
+        i2c_master.py       # the abstract I2C master class
+        message_util.py     # handles message packing and unpacking, CRC8 checksums
 
     upy:
         boot.py
-        colors.py         # a pseudo-enum of predefined color names
-        controller.py     # the controller for handling incoming commands
-        ctrl.py           # the slave-side CLI
-        i2c_slave.py      # the I2C slave implementation
-        main.py           # entry point into the application
-        message_util.py   # same file as above
-        neopixel.py       # standard NeoPixel implementation
-        pixel.py          # wraps NeoPixel functionality
-        tinys3.py         # TinyS3 utility class (from UM)
+        colors.py           # a pseudo-enum of predefined color names
+        controller.py       # the controller for handling incoming commands
+        ctrl.py             # the slave-side CLI
+        i2c_slave.py        # the I2C slave implementation
+        main.py             # entry point into the application
+        message_util.py     # same file as above
+        neopixel.py         # standard NeoPixel implementation
+        pixel.py            # wraps NeoPixel functionality
+        ringcontroller.py   # controls a NeoPixel ring (subclasses the STM32Controller)
+        stm32controller.py  # subclass of Controller for use with an STM32
+        tinys3.py           # TinyS3 utility class (used only on the UM TinyS3)
 
 .. Yes, message_util.py is duplicated. I could be clever but prefer they are independent even if identical.
 
