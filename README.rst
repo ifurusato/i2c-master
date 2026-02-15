@@ -115,10 +115,23 @@ use "persist on".
 The heartbeat, which blinks the NeoPixel, can be turned on or off. Setting the
 NeoPixel will disable it automatically.
 
+
+Performance
+***********
+
 If the slave performance is too slow (for any reason), the slave will generally
-return the command sent to it (which is what's in its memory buffer prior to
-being processed), otherwise "ACK", "ERR" or specific data. Increasing the delay
-on the I2C master will eliminate this.
+still execute the action but return the command sent to it (which is what's in
+its memory buffer prior to being processed), otherwise "ACK", "ERR" or specific
+data. Increasing the delay on the I2C master will eliminate this::
+
+    WRITE_READ_DELAY_SEC = 0.008
+
+If you don't care about the slave's response (i.e., it's entirely a master-write
+application) you can set the delay as low as 3ms. If the response matters, in
+particular, if you're sending data back from the slave to the master, then the
+delay time is tied to the packet length and the I2C baud rate. Setting the baud
+rate of the master (e.g., a Raspberry Pi) to 1MHz will permit reasonably reliable
+transactions of up to the 62 character limit with a delay time as low as 8ms.
 
 
 Files
