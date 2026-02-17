@@ -989,12 +989,6 @@ class VL53L1X:
     def __i2cWrite(self, address, register, data, nbytes):
         '''
         wrapper for standard MicroPython I2C. Handles 16-bit register addresses.
-
-        @param register: 16-bit register address
-        @param data: data to be set in register (1, 2, or 4 bytes)
-        @param nbytes: number of bytes in data
-
-        @return status: 0 on success
         '''
         registerMSB = (register >> 8) & 0xFF
         registerLSB = register & 0xFF
@@ -1026,11 +1020,6 @@ class VL53L1X:
     def __i2cRead(self, address, register, nbytes):
         '''
         wrapper for standard MicroPython I2C. Handles 16-bit register addresses.
-
-        @param register: 16-bit register address
-        @param nbytes: number of bytes to read (1, 2, or 4)
-
-        @return integer data
         '''
         registerMSB = (register >> 8) & 0xFF
         registerLSB = register & 0xFF
@@ -1041,12 +1030,11 @@ class VL53L1X:
             return 0
         
         try:
-            # write register address
+            # Write register address then read - as separate I2C transactions
             self._i2c.writeto(address, bytearray([registerMSB, registerLSB]))
-            # read data
             data_bytes = self._i2c.readfrom(address, nbytes)
             
-            # convert bytes to integer (big-endian)
+            # Convert bytes to integer (big-endian for VL53L1X)
             data = 0
             for byte_val in data_bytes:
                 data = (data << 8) | byte_val
